@@ -1,31 +1,41 @@
+# ============================================================
+# Spectral Zonal Schrödinger Bridge on SO(3)
+# Single-file version with plot/animation toggles
+# ============================================================
+
+import os
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
-import shutil
-import os
+from matplotlib.animation import FuncAnimation, PillowWriter
 
 # ============================================================
-# System Configuration & LaTeX Safety
+# USER TOGGLES
 # ============================================================
-# Check if 'latex' is installed on the system path
-latex_exists = shutil.which("latex") is not None
+SAVE_EPS = False
+SAVE_PNG = True
+DO_ANIMATION = True
 
+PLOT_HILBERT = True
+PLOT_DENSITIES = True
+SHOW_PLOTS = True
+USE_TEX = False   # Set True only if LaTeX is installed and working
+
+# ============================================================
+# OUTPUT FOLDER
+# ============================================================
+ASSET_DIR = "assets"
+os.makedirs(ASSET_DIR, exist_ok=True)
+
+# ============================================================
+# MATPLOTLIB SETUP
+# ============================================================
+plt.rcParams["text.usetex"] = USE_TEX
 plt.rcParams.update({
-    "font.size": 14,
-    "text.usetex": latex_exists,
+    "font.size": 14
 })
 
-if not latex_exists:
-    print("!!! LaTeX not found. Using standard Matplotlib fonts (Computer Modern style).")
-    # Mimic LaTeX look as closely as possible
-    plt.rcParams["mathtext.fontset"] = "cm" 
-    plt.rcParams["font.family"] = "STIXGeneral"
-else:
-    print("--- LaTeX detected. Professional rendering enabled.")
-
 # ============================================================
-# Parameters
+# PARAMETERS
 # ============================================================
 ell_max = 60
 sigma = 0.5
@@ -40,167 +50,322 @@ tolChange = 1e-14
 epsfloor = 1e-300
 
 # Haar weight (after integrating axis)
-w = np.sin(omega/2)**2
+w = np.sin(omega / 2) ** 2
 w = w / np.sum(w * domega)
 
-# ------------------------------------------------------------
-# Character matrix χ_ell(ω) for SO(3)
-# ------------------------------------------------------------
-Chi = np.zeros((ell_max+1, Nw))
+# ============================================================
+# CHARACTER MATRIX chi_ell(omega)
+# ============================================================
+Chi = np.zeros((ell_max + 1, Nw))
 small = 1e-8
 
-for ell in range(ell_max+1):
-    numerator = np.sin((ell + 0.5)*omega)
-    denominator = np.sin(omega/2)
-    
+for ell in range(ell_max + 1):
+    numerator = np.sin((ell + 0.5) * omega)
+    denominator = np.sin(omega / 2)
+
     ratio = np.empty_like(omega)
     mask = np.abs(omega) < small
-    
-    ratio[mask] = 2*ell + 1
-    ratio[~mask] = numerator[~mask] / denominator[~mask]
-    
-    Chi[ell,:] = ratio
 
-# ------------------------------------------------------------
-# Spectral transforms & Helpers
-# ------------------------------------------------------------
+    ratio[mask] = 2 * ell + 1
+    ratio[~mask] = numerator[~mask] / denominator[~mask]
+
+    Chi[ell, :] = ratio
+
+# ============================================================
+# SPECTRAL TRANSFORMS
+# ============================================================
 def zonal_forward(f):
     return np.array([
-        np.sum(f * Chi[ell,:] * w * domega)
-        for ell in range(ell_max+1)
+        np.sum(f * Chi[ell, :] * w * domega)
+        for ell in range(ell_max + 1)
     ])
 
-def zonal_inverse(fhat):
-    return np.sum(fhat[:,None] * Chi, axis=0)
 
+def zonal_inverse(fhat):
+    return np.sum(fhat[:, None] * Chi, axis=0)
+
+# ============================================================
+# HEAT SEMIGROUP (SPECTRAL)
+# ============================================================
 def heat_apply(f, t):
     fhat = zonal_forward(f)
-    for ell in range(ell_max+1):
-        fhat[ell] *= np.exp(-ell*(ell+1)*sigma**2*t)
+    for ell in range(ell_max + 1):
+        fhat[ell] *= np.exp(-ell * (ell + 1) * sigma**2 * t)
     return zonal_inverse(fhat)
 
+# ============================================================
+# NORMALIZATION AND SAFE LOG
+# ============================================================
 def normalize_pdf(f):
     return f / np.sum(f * w * domega)
+
 
 def safe_log(x):
     return np.log(np.maximum(x, epsfloor))
 
+# ============================================================
+# INITIAL / TERMINAL DENSITIES
+# ============================================================
 def zonal_von_mises(omega, mu, kappa):
-    return np.exp(kappa*np.cos(omega - mu))
+    return np.exp(kappa * np.cos(omega - mu))
+
 
 def hilbert_projective_metric(p, q):
-    p, q = np.asarray(p), np.asarray(q)
+    p = np.asarray(p)
+    q = np.asarray(q)
     ratio = p / q
     return safe_log(np.max(ratio) / np.min(ratio))
 
-# ------------------------------------------------------------
-# Initial / Terminal Densities
-# ------------------------------------------------------------
-p0 = normalize_pdf(zonal_von_mises(omega, mu=1.0, kappa=30))
-p1 = normalize_pdf(zonal_von_mises(omega, mu=2.0, kappa=30))
 
-# ------------------------------------------------------------
-# Log-domain Sinkhorn (spectral operator)
-# ------------------------------------------------------------
-a, b = np.zeros_like(p0), np.zeros_like(p1)
-d_H_phi_0_hat, d_H_phi_1 = [], []
+# For the graph in the draft
+p0 = zonal_von_mises(omega, mu=1.0, kappa=30)
+p1 = zonal_von_mises(omega, mu=2.0, kappa=30)
 
-print("Starting Sinkhorn iterations...")
+p0 = normalize_pdf(p0)
+p1 = normalize_pdf(p1)
+
+# ============================================================
+# LOG-DOMAIN SINKHORN
+# ============================================================
+a = np.zeros_like(p0)
+b = np.zeros_like(p1)
+
+d_H_phi_0_hat = []
+d_H_phi_1 = []
+
+da_list = []
+db_list = []
+
+print("Starting Sinkhorn...")
 
 for it in range(maxIter):
-    a_old, b_old = a.copy(), b.copy()
+    a_old = a.copy()
+    b_old = b.copy()
 
-    # update a
+    # Update a
     sb = np.max(b)
     vb = np.exp(b - sb)
-    Kv = np.maximum(heat_apply(vb, T), epsfloor)
+
+    Kv = heat_apply(vb, T)
+    Kv = np.maximum(Kv, epsfloor)
+
     a = safe_log(p0) - (safe_log(Kv) + sb)
 
-    # Metrics for Convergence
-    phi_0_hat_next, phi_0_hat = np.exp(a), np.exp(a_old)
+    phi_0_hat_next = np.exp(a)
+    phi_0_hat = np.exp(a_old)
     d_H_phi_0_hat.append(hilbert_projective_metric(phi_0_hat_next, phi_0_hat))
 
-    # update b
+    # Update b
     sa = np.max(a)
     ua = np.exp(a - sa)
-    Ku = np.maximum(heat_apply(ua, T), epsfloor)
+
+    Ku = heat_apply(ua, T)
+    Ku = np.maximum(Ku, epsfloor)
+
     b = safe_log(p1) - (safe_log(Ku) + sa)
 
-    phi_1_next, phi_1 = np.exp(b), np.exp(b_old)
+    phi_1_next = np.exp(b)
+    phi_1 = np.exp(b_old)
     d_H_phi_1.append(hilbert_projective_metric(phi_1_next, phi_1))
 
-    da, db = np.max(np.abs(a - a_old)), np.max(np.abs(b - b_old))
+    da = np.max(np.abs(a - a_old))
+    db = np.max(np.abs(b - b_old))
 
-    if it % 1 == 0:
-        print(f"iter {it:4d}: da={da:.3e}, db={db:.3e}")
+    da_list.append(da)
+    db_list.append(db)
+
+    print(f"iter {it:4d}: da={da:.3e}, db={db:.3e}")
 
     if max(da, db) < tolChange:
         print(f"Converged at iteration {it}")
         break
 
-# ------------------------------------------------------------
-# Plot 1: Hilbert Metric Convergence
-# ------------------------------------------------------------
 d_H_phi_0_hat_array = np.array(d_H_phi_0_hat)
 d_H_phi_1_array = np.array(d_H_phi_1)
 
-i = 0
-while i < len(d_H_phi_0_hat_array) and i < len(d_H_phi_1_array):
-    if d_H_phi_0_hat_array[i] < tolChange and d_H_phi_1_array[i] < tolChange:
-        break
-    i += 1
+# ============================================================
+# HILBERT METRIC PLOT
+# ============================================================
+if PLOT_HILBERT:
+    tol = tolChange
+    i = 0
+    while i < len(d_H_phi_0_hat_array) and i < len(d_H_phi_1_array):
+        if d_H_phi_0_hat_array[i] < tol and d_H_phi_1_array[i] < tol:
+            break
+        i += 1
 
-x_idx = np.arange(i)
-fig, ax = plt.subplots(figsize=(7,5))
+    x = np.arange(i)
 
-plt.semilogy(x_idx, d_H_phi_1_array[:i], 'o--', color='blue', 
-             label=r'$d_{\mathrm{Hilbert}}(\varphi_1, (\varphi_1)_{\mathrm{next}})$')
-plt.semilogy(x_idx, d_H_phi_0_hat_array[:i], 'd-', color='blue', 
-             label=r'$d_{\mathrm{Hilbert}}(\widehat{\varphi}_0, (\widehat{\varphi}_0)_{\mathrm{next}})$')
+    fig, ax = plt.subplots(figsize=(7, 5))
 
-ax.set_xlabel('Recursion index', color='blue')
-ax.set_ylabel('Hilbert projective metric', color='blue')
-ax.xaxis.set_label_position('top')
-ax.yaxis.set_label_position('right')
-ax.xaxis.tick_top()
-ax.yaxis.tick_right()
-ax.tick_params(axis='both', colors='blue')
+    plt.semilogy(
+        x,
+        d_H_phi_1_array[:i],
+        'o--',
+        color='blue',
+        label=r'$d_{\mathrm{Hilbert}}(\varphi_1,(\varphi_1)_{\mathrm{next}})$'
+    )
 
-for spine in ['top', 'right', 'bottom', 'left']:
-    ax.spines[spine].set_color('blue')
+    plt.semilogy(
+        x,
+        d_H_phi_0_hat_array[:i],
+        'd-',
+        color='blue',
+        label=r'$d_{\mathrm{Hilbert}}(\widehat{\varphi}_0,(\widehat{\varphi}_0)_{\mathrm{next}})$'
+    )
 
-ax.grid(True, which="both", linestyle="--", linewidth=0.5)
-plt.savefig("Hilbert_metric_semilogy_plot.png", format="png", bbox_inches="tight")
-plt.show()
+    ax.set_xlabel('Recursion index', color='blue')
+    ax.set_ylabel('Hilbert projective metric', color='blue')
 
-# ------------------------------------------------------------
-# Plot 2: Reconstruct Time Marginals
-# ------------------------------------------------------------
-u, v = np.exp(a), np.exp(b)
+    ax.xaxis.set_label_position('top')
+    ax.yaxis.set_label_position('right')
+    ax.xaxis.tick_top()
+    ax.yaxis.tick_right()
+
+    ax.tick_params(axis='x', colors='blue')
+    ax.tick_params(axis='y', colors='blue')
+
+    ax.spines['top'].set_color('blue')
+    ax.spines['right'].set_color('blue')
+    ax.spines['bottom'].set_visible(True)
+    ax.spines['left'].set_visible(True)
+
+    ax.grid(True, which="both", linestyle="--", linewidth=0.5)
+    plt.tight_layout()
+
+    if SAVE_EPS:
+        plt.savefig(
+            os.path.join(ASSET_DIR, "Hilbert_metric_semilogy_plot.eps"),
+            format="eps",
+            bbox_inches="tight"
+        )
+
+    if SAVE_PNG:
+        plt.savefig(
+            os.path.join(ASSET_DIR, "Hilbert_metric_semilogy_plot.png"),
+            format="png",
+            bbox_inches="tight"
+        )
+
+    if SHOW_PLOTS:
+        plt.show()
+    else:
+        plt.close(fig)
+
+# ============================================================
+# RECONSTRUCT TIME MARGINALS
+# ============================================================
+u = np.exp(a)
+v = np.exp(b)
+
 Nt = 50
 tgrid = np.linspace(0, T, Nt)
 rho_t = np.zeros((Nt, Nw))
 
 for k, t in enumerate(tgrid):
-    left  = heat_apply(u, t)
-    right = heat_apply(v, T-t)
-    rho_t[k,:] = normalize_pdf(left * right)
+    left = heat_apply(u, t)
+    right = heat_apply(v, T - t)
+
+    rho = left * right
+    rho = normalize_pdf(rho)
+    rho_t[k, :] = rho
 
 print("Reconstruction complete.")
 
-plt.figure(figsize=(8,5))
-Num_lines = 10
-for idx in np.linspace(0, Nt-1, Num_lines, dtype=int):
-    t_val = tgrid[idx]
-    plt.plot(omega, rho_t[idx,:], linewidth=2, label=f"t={t_val:.2f}")
+# ============================================================
+# DENSITY PLOT
+# ============================================================
+if PLOT_DENSITIES:
+    fig = plt.figure(figsize=(8, 5))
 
-plt.plot(omega, p0, 'k--', linewidth=3, label=r"$\rho_0$ at $t=0$")
-plt.plot(omega, p1, 'r--', linewidth=3, label=r"$\rho_1$ at $t=1$")
+    Num = 10
+    for idx in np.linspace(0, Nt - 1, Num, dtype=int):
+        t_val = tgrid[idx]
+        plt.plot(
+            omega,
+            rho_t[idx, :],
+            linewidth=2,
+            label=r"$\rho^{\mathrm{opt}}$ at" + f" t={t_val:.2f}"
+        )
 
-plt.xlabel(r"Rotation angle magnitude $\|\omega\|_2$")
-plt.ylabel(r"Density $\rho$")
-plt.legend(loc="upper left", fontsize=9)
-plt.grid(True)
-plt.tight_layout()
-plt.savefig("schrodinger_bridge_SO3.png", format="png", bbox_inches="tight")
-plt.show()
+    plt.plot(omega, p0, 'k--', linewidth=3, label=r"$\rho_0$ at $t=0.00$")
+    plt.plot(omega, p1, 'r--', linewidth=3, label=r"$\rho_1$ at $t=1.00$")
+
+    plt.xlabel(r"Rotation angle magnitude $\|\omega\|_2$")
+    plt.legend(loc="upper left", fontsize=9)
+    plt.tight_layout()
+    plt.grid(True)
+
+    if SAVE_EPS:
+        plt.savefig(
+            os.path.join(ASSET_DIR, "schrodinger_bridge_SO3.eps"),
+            format="eps",
+            bbox_inches="tight"
+        )
+
+    if SAVE_PNG:
+        plt.savefig(
+            os.path.join(ASSET_DIR, "schrodinger_bridge_SO3.png"),
+            format="png",
+            bbox_inches="tight"
+        )
+
+    if SHOW_PLOTS:
+        plt.show()
+    else:
+        plt.close(fig)
+
+# ============================================================
+# ANIMATION OF DENSITIES
+# ============================================================
+if DO_ANIMATION:
+    fig_anim, ax_anim = plt.subplots(figsize=(8, 5))
+
+    line_rho, = ax_anim.plot([], [], linewidth=2, label=r"$\rho^{\mathrm{opt}}(\omega,t)$")
+    line_p0, = ax_anim.plot(omega, p0, 'k--', linewidth=2.5, label=r"$\rho_0$")
+    line_p1, = ax_anim.plot(omega, p1, 'r--', linewidth=2.5, label=r"$\rho_1$")
+
+    ax_anim.set_xlim(omega[0], omega[-1])
+
+    ymin = min(np.min(rho_t), np.min(p0), np.min(p1))
+    ymax = max(np.max(rho_t), np.max(p0), np.max(p1))
+    pad = 0.05 * (ymax - ymin + 1e-15)
+    ax_anim.set_ylim(ymin - pad, ymax + pad)
+
+    ax_anim.set_xlabel(r"Rotation angle magnitude $\|\omega\|_2$")
+    ax_anim.set_ylabel("Density")
+    title = ax_anim.set_title(r"Schrödinger Bridge on $\mathsf{SO}(3)$, $t=0.00$")
+    ax_anim.grid(True)
+    ax_anim.legend(loc="upper left", fontsize=10)
+
+    def init():
+        line_rho.set_data([], [])
+        title.set_text(r"Schrödinger Bridge on $\mathsf{SO}(3)$, $t=0.00$")
+        return line_rho, title
+
+    def update(frame):
+        line_rho.set_data(omega, rho_t[frame, :])
+        title.set_text(
+            r"Schrödinger Bridge on $\mathsf{SO}(3)$"
+            + f", t={tgrid[frame]:.2f}"
+        )
+        return line_rho, title
+
+    anim = FuncAnimation(
+        fig_anim,
+        update,
+        frames=Nt,
+        init_func=init,
+        blit=False,
+        interval=120
+    )
+
+    anim.save(
+        os.path.join(ASSET_DIR, "schrodinger_bridge_SO3_animation.gif"),
+        writer=PillowWriter(fps=10)
+    )
+
+    if SHOW_PLOTS:
+        plt.show()
+    else:
+        plt.close(fig_anim)
