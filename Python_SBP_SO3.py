@@ -19,6 +19,7 @@ PLOT_HILBERT = True
 PLOT_DENSITIES = True
 SHOW_PLOTS = True
 USE_TEX = False   # Set True only if LaTeX is installed and working
+DARK_THEME = True
 
 # ============================================================
 # OUTPUT FOLDER
@@ -33,6 +34,22 @@ plt.rcParams["text.usetex"] = USE_TEX
 plt.rcParams.update({
     "font.size": 14
 })
+
+# ============================================================
+# THEME SETUP
+# ============================================================
+if DARK_THEME:
+    FIG_FACE = "black"
+    AX_FACE = "black"
+    TEXT_COLOR = "white"
+    GRID_COLOR = (0.7, 0.7, 0.7)
+    SPINE_COLOR = "white"
+else:
+    FIG_FACE = "white"
+    AX_FACE = "white"
+    TEXT_COLOR = "black"
+    GRID_COLOR = (0.7, 0.7, 0.7)
+    SPINE_COLOR = "black"
 
 # ============================================================
 # PARAMETERS
@@ -196,13 +213,14 @@ if PLOT_HILBERT:
 
     x = np.arange(i)
 
-    fig, ax = plt.subplots(figsize=(7, 5))
+    fig, ax = plt.subplots(figsize=(7, 5), facecolor=FIG_FACE)
+    ax.set_facecolor(AX_FACE)
 
     plt.semilogy(
         x,
         d_H_phi_1_array[:i],
         'o--',
-        color='blue',
+        color='red' if DARK_THEME else 'blue',
         label=r'$d_{\mathrm{Hilbert}}(\varphi_1,(\varphi_1)_{\mathrm{next}})$'
     )
 
@@ -210,41 +228,47 @@ if PLOT_HILBERT:
         x,
         d_H_phi_0_hat_array[:i],
         'd-',
-        color='blue',
+        color='cyan' if DARK_THEME else 'blue',
         label=r'$d_{\mathrm{Hilbert}}(\widehat{\varphi}_0,(\widehat{\varphi}_0)_{\mathrm{next}})$'
     )
 
-    ax.set_xlabel('Recursion index', color='blue')
-    ax.set_ylabel('Hilbert projective metric', color='blue')
+    ax.set_xlabel('Recursion index', color=TEXT_COLOR)
+    ax.set_ylabel('Hilbert projective metric', color=TEXT_COLOR)
 
     ax.xaxis.set_label_position('top')
     ax.yaxis.set_label_position('right')
     ax.xaxis.tick_top()
     ax.yaxis.tick_right()
 
-    ax.tick_params(axis='x', colors='blue')
-    ax.tick_params(axis='y', colors='blue')
+    ax.tick_params(axis='x', colors=TEXT_COLOR)
+    ax.tick_params(axis='y', colors=TEXT_COLOR)
 
-    ax.spines['top'].set_color('blue')
-    ax.spines['right'].set_color('blue')
-    ax.spines['bottom'].set_visible(True)
-    ax.spines['left'].set_visible(True)
+    for spine in ax.spines.values():
+        spine.set_color(SPINE_COLOR)
 
-    ax.grid(True, which="both", linestyle="--", linewidth=0.5)
+    ax.grid(True, which="both", linestyle="--", linewidth=0.5, color=GRID_COLOR)
+    leg = ax.legend()
+    for text in leg.get_texts():
+        text.set_color(TEXT_COLOR)
+    leg.get_frame().set_facecolor(AX_FACE)
+    leg.get_frame().set_edgecolor(SPINE_COLOR)
+
     plt.tight_layout()
 
     if SAVE_EPS:
         plt.savefig(
             os.path.join(ASSET_DIR, "Hilbert_metric_semilogy_plot.eps"),
             format="eps",
-            bbox_inches="tight"
+            bbox_inches="tight",
+            facecolor=fig.get_facecolor()
         )
 
     if SAVE_PNG:
         plt.savefig(
             os.path.join(ASSET_DIR, "Hilbert_metric_semilogy_plot.png"),
             format="png",
-            bbox_inches="tight"
+            bbox_inches="tight",
+            facecolor=fig.get_facecolor()
         )
 
     if SHOW_PLOTS:
@@ -276,7 +300,9 @@ print("Reconstruction complete.")
 # DENSITY PLOT
 # ============================================================
 if PLOT_DENSITIES:
-    fig = plt.figure(figsize=(8, 5))
+    fig = plt.figure(figsize=(8, 5), facecolor=FIG_FACE)
+    ax = plt.gca()
+    ax.set_facecolor(AX_FACE)
 
     Num = 10
     for idx in np.linspace(0, Nt - 1, Num, dtype=int):
@@ -288,26 +314,40 @@ if PLOT_DENSITIES:
             label=r"$\rho^{\mathrm{opt}}$ at" + f" t={t_val:.2f}"
         )
 
-    plt.plot(omega, p0, 'k--', linewidth=3, label=r"$\rho_0$ at $t=0.00$")
+    plt.plot(omega, p0, 'k--' if not DARK_THEME else '--', color='white' if DARK_THEME else 'k', linewidth=3, label=r"$\rho_0$ at $t=0.00$")
     plt.plot(omega, p1, 'r--', linewidth=3, label=r"$\rho_1$ at $t=1.00$")
 
-    plt.xlabel(r"Rotation angle magnitude $\|\omega\|_2$")
-    plt.legend(loc="upper left", fontsize=9)
+    plt.xlabel(r"Rotation angle magnitude $\|\omega\|_2$", color=TEXT_COLOR)
+    plt.ylabel("Density", color=TEXT_COLOR)
+    plt.xticks(color=TEXT_COLOR)
+    plt.yticks(color=TEXT_COLOR)
+
+    for spine in ax.spines.values():
+        spine.set_color(SPINE_COLOR)
+
+    plt.grid(True, color=GRID_COLOR)
+    leg = plt.legend(loc="upper left", fontsize=9)
+    for text in leg.get_texts():
+        text.set_color(TEXT_COLOR)
+    leg.get_frame().set_facecolor(AX_FACE)
+    leg.get_frame().set_edgecolor(SPINE_COLOR)
+
     plt.tight_layout()
-    plt.grid(True)
 
     if SAVE_EPS:
         plt.savefig(
             os.path.join(ASSET_DIR, "schrodinger_bridge_SO3.eps"),
             format="eps",
-            bbox_inches="tight"
+            bbox_inches="tight",
+            facecolor=fig.get_facecolor()
         )
 
     if SAVE_PNG:
         plt.savefig(
             os.path.join(ASSET_DIR, "schrodinger_bridge_SO3.png"),
             format="png",
-            bbox_inches="tight"
+            bbox_inches="tight",
+            facecolor=fig.get_facecolor()
         )
 
     if SHOW_PLOTS:
@@ -319,10 +359,11 @@ if PLOT_DENSITIES:
 # ANIMATION OF DENSITIES
 # ============================================================
 if DO_ANIMATION:
-    fig_anim, ax_anim = plt.subplots(figsize=(8, 5))
+    fig_anim, ax_anim = plt.subplots(figsize=(8, 5), facecolor=FIG_FACE)
+    ax_anim.set_facecolor(AX_FACE)
 
     line_rho, = ax_anim.plot([], [], linewidth=2, label=r"$\rho^{\mathrm{opt}}(\omega,t)$")
-    line_p0, = ax_anim.plot(omega, p0, 'k--', linewidth=2.5, label=r"$\rho_0$")
+    line_p0, = ax_anim.plot(omega, p0, 'k--' if not DARK_THEME else '--', color='white' if DARK_THEME else 'k', linewidth=2.5, label=r"$\rho_0$")
     line_p1, = ax_anim.plot(omega, p1, 'r--', linewidth=2.5, label=r"$\rho_1$")
 
     ax_anim.set_xlim(omega[0], omega[-1])
@@ -332,11 +373,25 @@ if DO_ANIMATION:
     pad = 0.05 * (ymax - ymin + 1e-15)
     ax_anim.set_ylim(ymin - pad, ymax + pad)
 
-    ax_anim.set_xlabel(r"Rotation angle magnitude $\|\omega\|_2$")
-    ax_anim.set_ylabel("Density")
-    title = ax_anim.set_title(r"Schrödinger Bridge on $\mathsf{SO}(3)$, $t=0.00$")
-    ax_anim.grid(True)
-    ax_anim.legend(loc="upper left", fontsize=10)
+    ax_anim.set_xlabel(r"Rotation angle magnitude $\|\omega\|_2$", color=TEXT_COLOR)
+    ax_anim.set_ylabel("Density", color=TEXT_COLOR)
+    ax_anim.tick_params(axis='x', colors=TEXT_COLOR)
+    ax_anim.tick_params(axis='y', colors=TEXT_COLOR)
+
+    for spine in ax_anim.spines.values():
+        spine.set_color(SPINE_COLOR)
+
+    title = ax_anim.set_title(
+        r"Schrödinger Bridge on $\mathsf{SO}(3)$, $t=0.00$",
+        color=TEXT_COLOR
+    )
+    ax_anim.grid(True, color=GRID_COLOR)
+
+    leg = ax_anim.legend(loc="upper left", fontsize=10)
+    for text in leg.get_texts():
+        text.set_color(TEXT_COLOR)
+    leg.get_frame().set_facecolor(AX_FACE)
+    leg.get_frame().set_edgecolor(SPINE_COLOR)
 
     def init():
         line_rho.set_data([], [])
