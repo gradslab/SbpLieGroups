@@ -1,0 +1,27 @@
+# Python 
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Conda
+.conda/
+conda-meta/
+
+# VS Code
+.vscode/
+.history/
+
+# Output Files (Plots and Results)
+# We usually ignore these so the repo only contains source code
+*.png
+*.eps
+*.pdf
+results/
+
+# System files
+.DS_Store
+Thumbs.db
