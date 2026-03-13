@@ -1,8 +1,8 @@
 # Spectral Schrödinger Bridge on SO(3)
 
-A **spectral implementation of the Schrödinger Bridge problem on the rotation group \(SO(3)\)** using zonal harmonic expansions and log-domain Sinkhorn iterations.
+A **spectral implementation of the Schrödinger Bridge problem on the rotation group $SO(3)$** using zonal harmonic expansions and log-domain Sinkhorn iterations.
 
-This project computes **entropic optimal transport on \(SO(3)\)** using the heat kernel as the reference process.
+This project computes **entropic optimal transport on $SO(3)$** using the heat kernel as the reference process.
 
 The implementation is designed for **research and visualization of Schrödinger bridges on compact Lie groups**.
 
@@ -12,50 +12,51 @@ The implementation is designed for **research and visualization of Schrödinger 
 
 The Schrödinger bridge solves the stochastic control problem
 
-\[
+$$
 \min_{\rho_t}
-\; \mathrm{KL}(\rho_t \,\|\, \text{Brownian motion})
-\]
+\; \mathrm{KL}\!\left(\rho_t \,\|\, \text{Brownian motion}\right)
+$$
 
 subject to
 
-\[
+$$
 \rho_0 = p_0, \qquad
 \rho_T = p_1
-\]
+$$
 
-On \(SO(3)\), the heat semigroup admits a **spectral representation**
+On $SO(3)$, the heat semigroup admits a **spectral representation**
 
-\[
-K_t f =
+$$
+K_t f
+=
 \sum_{\ell=0}^{\infty}
 e^{-\ell(\ell+1)\sigma^2 t}
 \hat f_\ell
 \chi_\ell(\omega)
-\]
+$$
 
 where
 
-- \( \chi_\ell \) are the **characters of \(SO(3)\)**
-- \( \hat f_\ell \) are spectral coefficients
+- $\chi_\ell$ are the **characters of $SO(3)$**
+- $\hat f_\ell$ are spectral coefficients
 
 The Schrödinger bridge density is reconstructed as
 
-\[
+$$
 \rho_t(\omega)
 =
 (K_t u)(\omega)
 \,
 (K_{T-t} v)(\omega)
-\]
+$$
 
-where \(u,v\) are obtained via **Sinkhorn iterations**.
+where $u,v$ are obtained via **Sinkhorn iterations**.
 
 ---
 
 # Features
 
-- Spectral representation of the **SO(3) heat kernel**
+- Spectral representation of the **$SO(3)$ heat kernel**
 - **Log-domain Sinkhorn algorithm**
 - Hilbert projective metric convergence analysis
 - Time evolution of optimal density
@@ -70,7 +71,7 @@ where \(u,v\) are obtained via **Sinkhorn iterations**.
 
 ![Density evolution](assets/schrodinger_bridge_SO3.png)
 
-The plot shows the optimal probability density interpolating between the initial and terminal distributions on \(SO(3)\).
+The plot shows the optimal probability density interpolating between the initial and terminal distributions on $SO(3)$.
 
 ---
 
@@ -86,13 +87,13 @@ The Hilbert projective metric demonstrates the contraction of the Sinkhorn updat
 
 ![Bridge animation](assets/schrodinger_bridge_SO3_animation.gif)
 
-The animation shows the time evolution of the optimal density:
+The animation shows the time evolution of the optimal density
 
-\[
+$$
 \rho_t(\omega)
-\]
+$$
 
-between \(t=0\) and \(t=T\).
+between $t=0$ and $t=T$.
 
 ---
 
@@ -108,7 +109,7 @@ cd schrodinger-bridge-so3
 Install dependencies
 
 ```bash
-pip install numpy matplotlib pillow
+pip install -r requirements.txt
 ```
 
 ---
@@ -158,6 +159,7 @@ These allow you to enable or disable:
 ```
 .
 ├── schrodinger_bridge_so3.py
+├── requirements.txt
 ├── README.md
 └── assets
     ├── schrodinger_bridge_SO3.png
@@ -169,15 +171,15 @@ These allow you to enable or disable:
 
 # Mathematical Background
 
-The algorithm is based on:
+The algorithm is based on ideas from
 
 - **Schrödinger bridges**
 - **Entropic optimal transport**
-- **Heat kernel on compact Lie groups**
-- **Sinkhorn scaling in positive cones**
+- **Heat kernels on compact Lie groups**
+- **Sinkhorn scaling**
 - **Hilbert projective metric contraction**
 
-Key references include:
+Key references include
 
 - Schrödinger (1931)
 - Sinkhorn (1967)
@@ -188,11 +190,13 @@ Key references include:
 
 # Potential Extensions
 
-- Schrödinger bridges on **SE(3)**
-- Non-zonal densities on \(SO(3)\)
+Possible extensions of this project include
+
+- Schrödinger bridges on **$SE(3)$**
+- Non-zonal densities on $SO(3)$
 - Higher resolution spectral expansions
 - GPU acceleration
-- Wasserstein comparison with classical OT
+- Wasserstein comparison with classical optimal transport
 
 ---
 
