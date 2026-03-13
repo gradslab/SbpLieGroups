@@ -2,6 +2,14 @@
 
 This repository contains **Python implementations of Schrödinger Bridge Problems (SBP)** on compact Lie groups.
 
+## Project Page
+
+The project webpage with animations and additional details is available here:
+
+🔗 https://gradslab.github.io/SbpLieGroups/
+
+## Simulation Scenarios
+
 Two geometries are studied:
 
 - **SO(2)** — probability transport on the circle
